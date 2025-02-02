@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text and Images to PDF Converter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            width: 400px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+        }
+        textarea, input {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        textarea {
+            height: 150px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            resize: vertical;
+        }
+
+        input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .success-message {
+            text-align: center;
+            font-size: 14px;
+            color: #28a745;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Text and Images to PDF Converter</h1>
+        <textarea id="text-input" placeholder="Paste your document content here..."></textarea>
+        <input type="file" id="image-input" accept="image/*" multiple>
+        <button id="generate-text-pdf-btn">Generate Text PDF</button>
+        <button id="generate-image-pdf-btn">Generate Image PDF</button>
+        <button id="generate-combined-pdf-btn">Generate Combined PDF</button>
+        <div class="success-message" id="success-message">PDF generated successfully!</div>
+    </div>
+
+    <script>
+        document.getElementById('generate-combined-pdf-btn').addEventListener('click', async () => {
+            const text = document.getElementById('text-input').value.trim();
+            const imageInput = document.getElementById('image-input');
+            const combinedContent = document.createElement('div');
+    
+            if (text) {
+                const textContent = createTextContent(text);
+                combinedContent.appendChild(textContent);
+            }
+    
+            if (imageInput.files.length) {
+                try {
+                    const imageContent = await createImageContent();
+                    combinedContent.appendChild(imageContent);
+                } catch (error) {
+                    alert('Error loading images: ' + error.message);
+                    return;
+                }
+            }
+    
+            if (!combinedContent.hasChildNodes()) {
+                alert('Please provide text or images!');
+                return;
+            }
+    
+            generatePDF(combinedContent);
+        });
+    
+        function createTextContent(text) {
+            if (!text) {
+                alert('Please paste your document content!');
+                return null;
+            }
+    
+            const textContainer = document.createElement('div');
+            const textHeader = document.createElement('h2');
+            textHeader.innerText = 'Text Content';
+            textHeader.style.color = '#4CAF50';
+            textContainer.appendChild(textHeader);
+    
+            const lines = text.split('\n');
+            lines.forEach(line => {
+                const isHeading = checkIfHeading(line);
+                const element = document.createElement(isHeading ? 'h3' : 'p');
+                element.innerText = line;
+                element.style.margin = '10px 0';
+                if (isHeading) {
+                    element.style.color = '#4CAF50';
+                    element.style.fontWeight = 'bold';
+                    element.style.fontSize = '18px';
+                }
+                textContainer.appendChild(element);
+            });
+    
+            return textContainer;
+        }
+    
+        function createImageContent() {
+            return new Promise((resolve, reject) => {
+                const imageInput = document.getElementById('image-input');
+                if (!imageInput.files.length) {
+                    return reject(new Error('No images uploaded.'));
+                }
+    
+                const imageContainer = document.createElement('div');
+                const imageHeader = document.createElement('h2');
+                imageHeader.innerText = 'Images';
+                imageHeader.style.color = '#4CAF50';
+                imageContainer.appendChild(imageHeader);
+    
+                const files = Array.from(imageInput.files);
+                const promises = files.map(file => {
+                    return new Promise(resolveImage => {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            const img = document.createElement('img');
+                            img.src = event.target.result;
+                            img.style.maxWidth = '100%';
+                            img.style.marginBottom = '10px';
+                            imageContainer.appendChild(img);
+                            resolveImage();
+                        };
+                        reader.onerror = () => reject(new Error('Error reading image file.'));
+                        reader.readAsDataURL(file);
+                    });
+                });
+    
+                Promise.all(promises)
+                    .then(() => resolve(imageContainer))
+                    .catch(error => reject(error));
+            });
+        }
+    
+        function checkIfHeading(line) {
+            return (
+                /^[A-Z\s]+$/.test(line.trim()) || // Uppercase words
+                /^[0-9]+[\.\)]\s/.test(line.trim()) || // Numbered headings
+                line.trim().endsWith(':') || // Ends with a colon
+                line.split(' ').length <= 5 || // Short lines (<= 5 words)
+                /^(Introduction|Summary|Chapter|Conclusion)/i.test(line.trim()) // Keywords
+            );
+        }
+    
+        function generatePDF(content) {
+            const options = {
+                margin: 10,
+                filename: 'converted.pdf',
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(options).from(content).save().then(() => {
+                document.getElementById('success-message').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('success-message').style.display = 'none';
+                }, 3000);
+            });
+        }
+    </script>
